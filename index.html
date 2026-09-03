@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rainbow Order Drag & Drop Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f4f7f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    p {
+      color: #666;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    #list-container {
+      width: 100%;
+      max-width: 400px;
+      list-style: none;
+      padding: 0;
+      margin: 0 0 20px 0;
+    }
+
+    .draggable {
+      background-color: #ffffff;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-bottom: 10px;
+      cursor: grab;
+      font-weight: 600;
+      color: #444;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: border-color 0.2s, background-color 0.2s, transform 0.1s;
+      user-select: none;
+    }
+
+    .draggable:active {
+      cursor: grabbing;
+    }
+
+    .draggable.dragging {
+      opacity: 0.4;
+    }
+
+    .draggable.correct {
+      border-color: #2ecc71;
+      background-color: #eaafb;
+      color: #27ae60;
+    }
+
+    .draggable.incorrect {
+      border-color: #e74c3c;
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    #message {
+      margin-top: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      min-height: 27px;
+    }
+
+    .win-text {
+      color: #2ecc71;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Word Order Puzzle</h1>
+  <p>Drag and drop the items to place them in the correct sequence.</p>
+
+  <ul id="list-container"></ul>
+
+  <div id="controls">
+    <button id="check-btn">CHECK</button>
+  </div>
+
+  <div id="message"></div>
+
+  <script>
+    const CORRECT_ORDER = [
+      "Strawberry",
+      "Orange",
+      "Lemon",
+      "Brocolli",
+      "Blueberry",
+      "Concord Grape",
+      "Violet"
+    ];
+
+    const listContainer = document.getElementById('list-container');
+    const checkBtn = document.getElementById('check-btn');
+    const messageEl = document.getElementById('message');
+
+    // Derangement shuffle guarantees no item starts in its correct index
+    function getDerangedOrder(arr) {
+      let shuffled = [...arr];
+      let isDeranged = false;
+
+      while (!isDeranged) {
+        // Standard Fisher-Yates Shuffle
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        
+        // Verify no element matches original position
+        isDeranged = shuffled.every((val, index) => val !== arr[index]);
+      }
+      return shuffled;
+    }
+
+    function initGame() {
+      listContainer.innerHTML = '';
+      messageEl.textContent = '';
+      
+      const startingOrder = getDerangedOrder(CORRECT_ORDER);
+
+      startingOrder.forEach(text => {
+        const li = document.createElement('li');
+        li.className = 'draggable';
+        li.draggable = true;
+        li.textContent = text;
+        listContainer.appendChild(li);
+      });
+
+      addDragListeners();
+    }
+
+    function addDragListeners() {
+      const draggables = document.querySelectorAll('.draggable');
+
+      draggables.forEach(draggable => {
+        draggable.addEventListener('dragstart', () => {
+          draggable.classList.add('dragging');
+        });
+
+        draggable.addEventListener('dragend', () => {
+          draggable.classList.remove('dragging');
+        });
+      });
+
+      listContainer.addEventListener('dragover', e => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(listContainer, e.clientY);
+        const dragging = document.querySelector('.dragging');
+        if (afterElement == null) {
+          listContainer.appendChild(dragging);
+        } else {
+          listContainer.insertBefore(dragging, afterElement);
+        }
+      });
+    }
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.draggable:not(.dragging)')];
+
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    checkBtn.addEventListener('click', () => {
+      const currentElements = document.querySelectorAll('.draggable');
+      let correctCount = 0;
+
+      currentElements.forEach((el, index) => {
+        // Reset state styles
+        el.classList.remove('correct', 'incorrect');
+
+        if (el.textContent === CORRECT_ORDER[index]) {
+          el.classList.add('correct');
+          correctCount++;
+        } else {
+          el.classList.add('incorrect');
+        }
+      });
+
+      if (correctCount === CORRECT_ORDER.length) {
+        messageEl.textContent = "🎉 Congratulations! You sorted them all correctly!";
+        messageEl.className = "win-text";
+        // Disable drag on win
+        currentElements.forEach(el => el.draggable = false);
+      } else {
+        messageEl.textContent = `${correctCount} of ${CORRECT_ORDER.length} in correct positions. Keep trying!`;
+        messageEl.className = "";
+      }
+    });
+
+    // Initialize on page load
+    initGame();
+  </script>
+</body>
+</html>
