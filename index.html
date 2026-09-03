@@ -7,6 +7,217 @@
   <style>
     * {
       box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: #f4f7f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 5px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 20px;
+    }
+    .list-container {
+      width: 100%;
+      max-width: 360px;
+      list-style-type: none;
+      padding: 0;
+      margin: 0 0 20px 0;
+    }
+    .draggable-item {
+      background-color: #ffffff;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin-bottom: 10px;
+      cursor: grab;
+      font-size: 18px;
+      font-weight: 600;
+      color: #444;
+      user-select: none;
+      transition: border 0.2s, box-shadow 0.2s;
+    }
+    .draggable-item.dragging {
+      opacity: 0.4;
+      border: 2px dashed #888;
+    }
+    .draggable-item.correct {
+      border: 3px solid #2ecc71;
+      box-shadow: 0 0 8px rgba(46, 204, 113, 0.4);
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #win-message {
+      margin-top: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #2ecc71;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Word Order Puzzle</h1>
+  <p>Drag and drop words into the correct order!</p>
+
+  <ul class="list-container" id="word-list"></ul>
+
+  <button id="check-btn">CHECK</button>
+  <div id="win-message">🎉 Perfect! You solved the puzzle!</div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const correctOrder = [
+        "Strawberry",
+        "Orange",
+        "Lemon",
+        "Brocolli",
+        "Blueberry",
+        "Concord Grape",
+        "Violet"
+      ];
+
+      const listContainer = document.getElementById("word-list");
+      const checkBtn = document.getElementById("check-btn");
+      const winMessage = document.getElementById("win-message");
+
+      let draggedItem = null;
+
+      // Ensure no items start in their correct positions
+      function getDerangedOrder(array) {
+        let shuffled = [...array];
+        let isDeranged = false;
+
+        while (!isDeranged) {
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = shuffled[i];
+            shuffled[i] = shuffled[j];
+            shuffled[j] = temp;
+          }
+          isDeranged = shuffled.every((val, index) => val !== array[index]);
+        }
+        return shuffled;
+      }
+
+      function initGame() {
+        listContainer.innerHTML = "";
+        winMessage.style.display = "none";
+
+        const shuffledWords = getDerangedOrder(correctOrder);
+
+        shuffledWords.forEach((word) => {
+          const li = document.createElement("li");
+          li.className = "draggable-item";
+          li.draggable = true;
+          li.textContent = word;
+
+          // Drag Events
+          li.addEventListener("dragstart", function() {
+            draggedItem = this;
+            setTimeout(() => this.classList.add("dragging"), 0);
+          });
+
+          li.addEventListener("dragend", function() {
+            this.classList.remove("dragging");
+            draggedItem = null;
+          });
+
+          // Mobile Touch Events
+          li.addEventListener("touchstart", function(e) {
+            draggedItem = this;
+            this.classList.add("dragging");
+          }, { passive: true });
+
+          li.addEventListener("touchmove", function(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.classList.contains("draggable-item") && target !== draggedItem) {
+              const rect = target.getBoundingClientRect();
+              const next = (touch.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+              listContainer.insertBefore(draggedItem, next ? target.nextSibling : target);
+            }
+          }, { passive: false });
+
+          li.addEventListener("touchend", function() {
+            if (draggedItem) {
+              draggedItem.classList.remove("dragging");
+              draggedItem = null;
+            }
+          });
+
+          listContainer.appendChild(li);
+        });
+      }
+
+      listContainer.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        const afterElement = [...listContainer.querySelectorAll(".draggable-item:not(.dragging)")].reduce((closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = e.clientY - box.top - box.height / 2;
+          return (offset < 0 && offset > closest.offset) ? { offset: offset, element: child } : closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+        if (draggedItem) {
+          if (afterElement == null) {
+            listContainer.appendChild(draggedItem);
+          } else {
+            listContainer.insertBefore(draggedItem, afterElement);
+          }
+        }
+      });
+
+      checkBtn.addEventListener("click", function() {
+        const currentItems = document.querySelectorAll(".draggable-item");
+        let correctCount = 0;
+
+        currentItems.forEach((item, index) => {
+          if (item.textContent === correctOrder[index]) {
+            item.classList.add("correct");
+            correctCount++;
+          } else {
+            item.classList.remove("correct");
+          }
+        });
+
+        if (correctCount === correctOrder.length) {
+          winMessage.style.display = "block";
+        }
+      });
+
+      initGame();
+    });
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rainbow Word Order Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     body {
